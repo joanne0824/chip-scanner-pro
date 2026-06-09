@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股投信籌碼深度分析</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0f14;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 16px;
+  }
+  .header {
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+  }
+  .title { font-size: 20px; font-weight: 700; color: #4ea8de; }
+  .subtitle { font-size: 12px; color: #666; margin-top: 4px; }
+  .update-time { font-size: 11px; color: #555; margin-top: 8px; }
+  .no-data { color: #666; text-align: center; padding: 40px; }
+
+  /* 卡片 */
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .stock-name { font-size: 16px; font-weight: 700; color: #fff; }
+  .stock-code { font-size: 12px; color: #888; margin-top: 2px; }
+
+  /* 分數標籤 */
+  .badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 12px;
+  }
+  .badge-chip-high { background: rgba(105,219,124,0.15); color: #69db7c; border: 1px solid rgba(105,219,124,0.3); }
+  .badge-chip-mid  { background: rgba(78,168,222,0.15);  color: #4ea8de; border: 1px solid rgba(78,168,222,0.3); }
+  .badge-chip-low  { background: rgba(232,200,64,0.15);  color: #e8c840; border: 1px solid rgba(232,200,64,0.3); }
+  .badge-score6    { background: rgba(105,219,124,0.15); color: #69db7c; border: 1px solid rgba(105,219,124,0.3); }
+  .badge-score5    { background: rgba(78,168,222,0.15);  color: #4ea8de; border: 1px solid rgba(78,168,222,0.3); }
+  .badge-score4    { background: rgba(232,200,64,0.15);  color: #e8c840; border: 1px solid rgba(232,200,64,0.3); }
+
+  /* 指標格 */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px; margin-bottom: 12px;
+  }
+  .metric {
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px; padding: 8px; text-align: center;
+  }
+  .metric-label { font-size: 10px; color: #666; margin-bottom: 4px; }
+  .metric-value { font-size: 14px; font-weight: 700; }
+  .positive { color: #69db7c; }
+  .negative { color: #ff6b6b; }
+  .neutral  { color: #e0e0e0; }
+  .warning  { color: #ffd43b; }
+
+  /* Section */
+  .section-title {
+    font-size: 11px; color: #666;
+    letter-spacing: 1px; margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* Checklist */
+  .checklist { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .check-item {
+    font-size: 11px; padding: 3px 8px;
+    border-radius: 6px; background: rgba(255,255,255,0.05);
+  }
+  .check-pass { color: #69db7c; }
+  .check-fail { color: #ff6b6b; }
+
+  /* 進場後漲跌 */
+  .entry-box {
+    display: flex; justify-content: space-between;
+    padding: 8px 12px; border-radius: 8px;
+    font-size: 12px; margin-bottom: 12px;
+  }
+  .entry-profit { background: rgba(105,219,124,0.08); border: 1px solid rgba(105,219,124,0.2); }
+  .entry-loss   { background: rgba(255,100,100,0.08); border: 1px solid rgba(255,100,100,0.2); }
+  .entry-na     { background: rgba(100,100,100,0.08); border: 1px solid rgba(100,100,100,0.2); }
+
+  /* 分隔線 */
+  .divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0; }
+
+  /* 主力明細 */
+  .broker-section { margin-top: 8px; }
+  .broker-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px; padding: 10px;
+    margin-bottom: 8px;
+  }
+  .broker-header {
+    display: flex; justify-content: space-between;
+    margin-bottom: 8px; font-size: 12px;
+  }
+  .broker-name { color: #4ea8de; font-weight: 700; }
+  .broker-meta { color: #666; font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th {
+    color: #666; font-weight: 500; padding: 5px 6px;
+    text-align: right; border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  th:first-child { text-align: left; }
+  td { padding: 5px 6px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  td:first-child { text-align: left; color: #888; }
+
+  /* 底部標籤 */
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tag {
+    font-size: 10px; padding: 2px 8px;
+    border-radius: 6px; background: rgba(255,255,255,0.05); color: #888;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">台股投信籌碼深度分析</div>
+  <div class="subtitle">投信連買 · 分點主力 · 籌碼一致性 · 主力進場後表現</div>
+  <div class="update-time" id="update-time">載入中...</div>
+</div>
+
+<div id="content">
+  <div class="no-data">載入資料中...</div>
+</div>
+
+<script>
+fetch('data.json?t=' + Date.now())
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('update-time').textContent =
+      '更新時間：' + data.update_time;
+
+    const content = document.getElementById('content');
+    if (!data.stocks || data.stocks.length === 0) {
+      content.innerHTML = '<div class="no-data">今日無符合條件股票</div>';
+      return;
+    }
+
+    content.innerHTML = data.stocks.map(s => {
+      const chip  = parseInt(s['籌碼一致性']) || 0;
+      const total = parseInt(s['總得分'])     || 0;
+      const chipClass  = chip  >= 8 ? 'badge-chip-high' : chip  >= 6 ? 'badge-chip-mid' : 'badge-chip-low';
+      const scoreClass = total >= 6 ? 'badge-score6'    : total >= 5 ? 'badge-score5'   : 'badge-score4';
+
+      // 投信 checklist
+      const trustChecks = [
+        ['連買≥3日', s['投信連買≥3日']],
+        ['占比≥0.1%', s['10日占比≥0.1%']],
+        ['加速≥60%', s['5d/10d≥60%']],
+      ];
+      // 分點 checklist
+      const brokerChecks = [
+        ['前5集中≥60%', s['前5券商集中≥60%']],
+        ['主力出現',    s['主力券商出現']],
+        ['單券商≥10%',  s['單券商異常≥10%']],
+      ];
+      // 技術 checklist
+      const techChecks = [
+        ['股價>季線', s['股價>季線']],
+        ['季線向上',  s['季線向上']],
+      ];
+
+      const renderChecks = checks => checks.map(([label, val]) =>
+        `<span class="check-item ${val==='✅'?'check-pass':'check-fail'}">
+          ${val==='✅'?'✓':'✗'} ${label}</span>`
+      ).join('');
+
+      // 主力進場後漲跌
+      const entryRet = parseFloat(s['主力進場後漲跌%']);
+      let entryClass = 'entry-na', entryText = '無主力進場資料';
+      if (!isNaN(entryRet)) {
+        entryClass = entryRet >= 0 ? 'entry-profit' : 'entry-loss';
+        entryText  = `主力進場後 ${entryRet >= 0 ? '+' : ''}${entryRet}%`;
+      }
+
+      // 主力明細
+      const majorHtml = (s.major_daily || []).map(broker => {
+        const rows = (broker['明細'] || []).map(d =>
+          `<tr>
+            <td>${d['日期']}</td>
+            <td style="color:${d['買超張']>0?'#69db7c':'#ff6b6b'}">${d['買超張']>0?'+':''}${d['買超張']}</td>
+            <td>${d['均買價']||'—'}</td>
+            <td>${d['均賣價']||'—'}</td>
+            <td>${d['還原收盤']||'—'}</td>
+          </tr>`
+        ).join('');
+        return `
+        <div class="broker-card">
+          <div class="broker-header">
+            <span class="broker-name">▶ ${broker['券商']}</span>
+            <span class="broker-meta">連買${broker['連買日']}日 加速${broker['加速%']}%</span>
+          </div>
+          <table>
+            <tr><th>日期</th><th>買超張</th><th>均買價</th><th>均賣價</th><th>還原收盤</th></tr>
+            ${rows}
+          </table>
+        </div>`;
+      }).join('');
+
+      return `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="stock-name">${s['名稱']}</div>
+            <div class="stock-code">${s['代碼']}</div>
+          </div>
+          <div class="badge-row">
+            <span class="badge ${chipClass}">籌碼 ${s['籌碼一致性']}</span>
+            <span class="badge ${scoreClass}">得分 ${s['總得分']}/6</span>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-label">收盤(還原)</div>
+            <div class="metric-value neutral">${s['收盤價(還原)']}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">距季線</div>
+            <div class="metric-value ${Math.abs(parseFloat(s['距季線%']))>15?'warning':parseFloat(s['距季線%'])>0?'positive':'negative'}">
+              ${parseFloat(s['距季線%'])>0?'+':''}${s['距季線%']}%
+            </div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">5日漲幅</div>
+            <div class="metric-value ${parseFloat(s['5日漲幅%'])>=0?'positive':'negative'}">
+              ${parseFloat(s['5日漲幅%'])>=0?'+':''}${s['5日漲幅%']}%
+            </div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">投信連買</div>
+            <div class="metric-value ${parseInt(s['投信連買日'])>=5?'positive':'neutral'}">
+              ${s['投信連買日']}日
+            </div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">外資方向</div>
+            <div class="metric-value ${s['外資10日方向']==='買'?'positive':'negative'}">
+              ${s['外資10日方向']==='買'?'▲ 買超':'▼ 賣超'}
+            </div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">前5集中度</div>
+            <div class="metric-value ${parseFloat(s['前5集中度%'])>=60?'positive':'neutral'}">
+              ${s['前5集中度%']}%
+            </div>
+          </div>
+        </div>
+
+        <div class="entry-box ${entryClass}">
+          <span>主力最早進場：${s['主力最早進場日']||'—'}</span>
+          <span>${entryText}</span>
+        </div>
+
+        <div class="section-title">投信條件</div>
+        <div class="checklist">${renderChecks(trustChecks)}</div>
+
+        <div class="section-title">分點條件</div>
+        <div class="checklist">${renderChecks(brokerChecks)}</div>
+
+        <div class="section-title">技術面</div>
+        <div class="checklist">${renderChecks(techChecks)}</div>
+
+        <hr class="divider">
+
+        <div class="section-title">主力券商每日明細</div>
+        ${majorHtml || '<div style="color:#666;font-size:12px">無主力券商資料</div>'}
+
+        <div class="tag-row">
+          <span class="tag">10日買超 ${s['10日買超張']}張</span>
+          <span class="tag">占比 ${s['10日占比%']}%</span>
+          <span class="tag">加速 ${s['5d/10d%']}%</span>
+          <span class="tag">最大券商 ${s['最大券商占量%']}%</span>
+          ${s['出現主力']&&s['出現主力']!=='—' ? `<span class="tag" style="color:#4ea8de">★ ${s['出現主力']}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  })
+  .catch(() => {
+    document.getElementById('update-time').textContent = '尚無資料';
+    document.getElementById('content').innerHTML =
+      '<div class="no-data">尚未有今日資料，請稍後再試</div>';
+  });
+</script>
+</body>
+</html>
